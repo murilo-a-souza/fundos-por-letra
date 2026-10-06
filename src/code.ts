@@ -1,7 +1,9 @@
-// Plugin logic thread. Runs isolated and talks to the app through the injected
-// `spresenter` global. This template builds a CUSTOM presentation (a theme with
-// identifiable TEXT elements) and then controls those elements BY ID in real
-// time — driven from a UI panel, without reloading the theme.
+/*Thread de lógica do plugin. Executa de forma isolada e comunica-se com o aplicativo
+por meio da variável global injetada `spresenter`. Este modelo cria uma apresentação
+PERSONALIZADA (um tema com elementos de TEXTO identificáveis) e controla esses
+elementos POR ID em tempo real — a partir de um painel de interface, sem recarregar o tema.*/
+
+import '@spresenter/plugin-sdk/code';
 
 interface UiMsg {
   type?: string;
@@ -14,11 +16,13 @@ interface UiMsg {
   line2?: string;
 }
 
-// Where we're currently live (set on "go-live").
+// Onde estamos operando atualmente (definido em "go-live").
 let ctx = { output: '0', layer: 0 };
 
-// A fully custom presentation composed in code — no asset needed in the DB.
-// The elements have stable ids ("line1", "line2") we control live afterwards.
+/* Uma apresentação totalmente personalizada criada via código
+ — sem necessidade de recursos no banco de dados.
+// Os elementos possuem IDs fixos ("line1", "line2")
+que controlamos em tempo real posteriormente. */
 function buildPresentation() {
   return {
     title: 'Custom',
@@ -66,6 +70,26 @@ function buildPresentation() {
     props: {},
   };
 }
+
+// Monitora quando algo entra ao vivo
+spresenter.on('live', async ({ output = '0' }) => {
+    const layers = await spresenter.live.read(output);
+
+    for (const item of layers) {
+        if (item?.asset && item.asset.type === 'music') {
+            const musicGuid = item.asset.guid;
+            const config = await spresenter.storage.get<{ bgGuid: string; bgLayer: number }>(`bg_map_${musicGuid}`);
+
+            if (config) {
+                const bgAsset = await spresenter.assets.get(config.bgGuid);
+                if (bgAsset) {
+                    await spresenter.live.apply(output, config.bgLayer, { asset: bgAsset });
+                    await spresenter.live.setState(output, config.bgLayer, { show: true });
+                }
+            }
+        }
+    }
+});
 
 spresenter.ui.onmessage = async (raw: unknown) => {
   const msg = raw as UiMsg;
