@@ -8,6 +8,14 @@
   "sdk": "0.3.48",
   "main": "dist/code.js",
   "ui": "dist/ui/index.html",
-  "permissions": ["outputs:read", "live:write"],
+  "permissions": [
+    "outputs:read",
+    "live:write",
+    "live:write",
+    "assets:read",
+    "storage:read",
+    "storage:write"
+  ],
+  "background": true,
   "panels": [{ "id": "main", "title": "fundos-por-letra", "icon": "sparkles" }]
 }
