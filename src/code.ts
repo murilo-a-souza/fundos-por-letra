@@ -3,9 +3,11 @@ por meio da variável global injetada `spresenter`. Este modelo cria uma apresen
 PERSONALIZADA (um tema com elementos de TEXTO identificáveis) e controla esses
 elementos POR ID em tempo real — a partir de um painel de interface, sem recarregar o tema.*/
 
-import '@spresenter/plugin-sdk/code';
+/// <reference types="@spresenter/plugin-sdk/code" />
+import type { MusicMapping } from "./ui/App";
 
 interface UiMsg {
+  mappings: string;
   type?: string;
   output?: string | number;
   layer?: number;
@@ -74,17 +76,18 @@ function buildPresentation() {
 // Monitora quando algo entra ao vivo
 spresenter.on('live', async ({ output = '0' }) => {
     const layers = await spresenter.live.read(output);
+    const mappings = (await spresenter.storage.get<MusicMapping[]>('music_bg_mappings')) || [];
 
     for (const item of layers) {
         if (item?.asset && item.asset.type === 'music') {
-            const musicGuid = item.asset.guid;
-            const config = await spresenter.storage.get<{ bgGuid: string; bgLayer: number }>(`bg_map_${musicGuid}`);
+            const match = mappings.find((m) => m.musicGuid === item.asset.guid);
 
-            if (config) {
-                const bgAsset = await spresenter.assets.get(config.bgGuid);
+            if (match && match.bgGuid) {
+                const bgAsset = await spresenter.assets.get(match.bgGuid);
                 if (bgAsset) {
-                    await spresenter.live.apply(output, config.bgLayer, { asset: bgAsset });
-                    await spresenter.live.setState(output, config.bgLayer, { show: true });
+                    const targetLayer = match.layer ?? 0;
+                    await spresenter.live.apply(output, targetLayer, { asset: bgAsset });
+                    await spresenter.live.setState(output, targetLayer, { show: true });
                 }
             }
         }
@@ -98,8 +101,31 @@ spresenter.ui.onmessage = async (raw: unknown) => {
   if (msg.type === 'init') {
     const outputs = await spresenter.outputs.list();
     spresenter.ui.postMessage({ type: 'outputs', outputs });
+      // Busca todas as músicas da biblioteca
+      const musics = await spresenter.assets.list({ type: 'music' });
+
+      // Busca os vídeos, imagens ou apresentações de fundo
+      const allAssets = await spresenter.assets.list();
+      const backgrounds = allAssets.filter(
+          (a) => a.type === 'video' || a.type === 'image' || a.type === 'presentation'
+      );
+
+      // Busca os mapeamentos salvos anteriormente
+      const savedMappings = (await spresenter.storage.get('music_bg_mappings')) || [];
+
+      spresenter.ui.postMessage({
+          type: 'init-data',
+          outputs,
+          musics,
+          backgrounds,
+          mappings: savedMappings,
+      });
     return;
   }
+
+  if (msg.type === 'save-mappings') {
+        await spresenter.storage.set('music_bg_mappings', msg.mappings);
+    }
 
   // Compose the custom presentation and put it live (visible).
   if (msg.type === 'go-live') {
