@@ -21,11 +21,23 @@ spresenter.live.setElement(output, layer, 'line1', { html: '<b>Hi</b>' });
 ## Structure
 
 ```
-manifest.json      Plugin metadata + declared permissions + panels
-src/code.ts        Logic thread (no DOM) — talks to the app via `spresenter`
-src/ui/            UI thread (React + Tailwind) rendered in a sandboxed iframe
-dist/              Build output (code.js + ui/) — this is what the app loads
+Fundos por Letra
+├── scripts
+│   ├── package.mjs
+├── src
+│   ├── ui
+│   └── code.ts
+├── code.ts
+├── sdk
+│   └── spresenter-plugin-sdk.tgz
+└── manifest.json
 ```
+
+`scripts/package.mjs` : Dá build e compila o projeto para distribuição
+`src/ui` : lista A-Z; seleção de fundo; preview; salvar configuração
+`src/code.ts` : detectar letra/slide ativo; descobrir qual fundo corresponde à letra; alterar o fundo no SPresenter;
+`manifest.json` : permissões + plugin metadata + panels
+`dist/` : Build saida (code.js + ui/)
 
 ## Develop
 
@@ -56,3 +68,28 @@ The plugin runs in two threads, like Figma:
   `postMessage`/`onMessage` from `@spresenter/plugin-sdk/ui`.
 
 Only what you declare in `manifest.json` `permissions` is allowed.
+
+A interface deve permitir:
+•
+Selecionar a saída (Output) e a camada padrão de fundo (ex: camada 0).
+•
+Listar as músicas cadastradas no Spresenter (spresenter.assets.list({ type: 'music' })).
+•
+Listar fundos disponíveis (vídeos/imagens: spresenter.assets.list({ type: 'video' }), theme, etc.).
+•
+Salvar o vínculo entre a música e o fundo selecionado no spresenter.storage.
+Por onde começar (Passo a Passo)
+1.
+Atualize o manifest.json: inclua as permissões de assets:read, live:read, live:write, storage:read, storage:write e background: true.
+2.
+Crie as mensagens entre UI e Logic:
+◦
+get-assets: busca lista de músicas e fundos disponíveis no SPresenter.
+◦
+save-mapping: salva no spresenter.storage a associação { musicGuid, bgGuid, bgLayer }.
+◦
+get-mappings: carrega o histórico de associações salvas.
+3.
+Construa a UI em src/ui/App.tsx: substitua os campos de texto atuais por selects/tabelas para associar a música com o fundo.
+4.
+Implemente o listener spresenter.on('live', ...) em src/code.ts para acionar o fundo automaticamente ao iniciar a letra.

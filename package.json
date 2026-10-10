@@ -10,7 +10,8 @@
     "package": "npm run build && node scripts/package.mjs",
     "dev": "concurrently -k \"npm:watch:code\" \"npm:watch:ui\"",
     "watch:code": "vite build --watch --config vite.code.config.ts",
-    "watch:ui": "vite build --watch --config vite.ui.config.ts"
+    "watch:ui": "vite build --watch --config vite.ui.config.ts",
+    "start": "npx vite src/ui"
   },
   "dependencies": {
     "@spresenter/plugin-sdk": "file:sdk/spresenter-plugin-sdk.tgz",
