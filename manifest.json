@@ -12,9 +12,7 @@
     "outputs:read",
     "live:write",
     "live:write",
-    "assets:read",
-    "storage:read",
-    "storage:write"
+    "assets:read"
   ],
   "background": true,
   "panels": [{ "id": "main", "title": "fundos-por-letra", "icon": "sparkles" }]
