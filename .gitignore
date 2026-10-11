@@ -1,7 +1,7 @@
 ## webstorm
 /.idea/
-/.idea/*
 
-## desenvolvimento
-/node_modules/*
-/package-lock.json
+## build e dependencias
+/node_modules/
+/dist/
+/release/
