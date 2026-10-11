@@ -1,97 +1,38 @@
-/*Thread de lógica do plugin. Executa de forma isolada e comunica-se com o aplicativo
-por meio da variável global injetada `spresenter`. Este modelo cria uma apresentação
-PERSONALIZADA (um tema com elementos de TEXTO identificáveis) e controla esses
-elementos POR ID em tempo real — a partir de um painel de interface, sem recarregar o tema.*/
+/* Thread de lógica do plugin. Executa em background e sincroniza fundos
+ao vivo quando uma música correspondente é exibida. */
 
 /// <reference types="@spresenter/plugin-sdk/code" />
 import type { MusicMapping } from "./ui/App";
 
 interface UiMsg {
-  mappings: string;
   type?: string;
-  output?: string | number;
-  layer?: number;
-  elementId?: string;
-  text?: string;
-  color?: string;
-  line1?: string;
-  line2?: string;
-}
-
-// Onde estamos operando atualmente (definido em "go-live").
-let ctx = { output: '0', layer: 0 };
-
-/* Uma apresentação totalmente personalizada criada via código
- — sem necessidade de recursos no banco de dados.
-// Os elementos possuem IDs fixos ("line1", "line2")
-que controlamos em tempo real posteriormente. */
-function buildPresentation() {
-  return {
-    title: 'Custom',
-    asset: { type: 'presentation', guid: 'plugin-window-custom', title: 'Custom' },
-    theme: {
-      title: 'Custom',
-      css: {},
-      elements: [
-        {
-          id: 'bg',
-          type: 'RECTANGLE',
-          x: 0,
-          y: 0,
-          visible: true,
-          css: { position: 'absolute', width: '100%', height: '100%', background: 'rgba(0,0,0,0.55)' },
-        },
-        {
-          id: 'line1',
-          type: 'TEXT',
-          text: '',
-          x: 0,
-          y: 0,
-          visible: true,
-          css: {
-            width: '100%', height: '60%', display: 'flex', 'align-items': 'flex-end',
-            'justify-content': 'center', 'text-align': 'center', 'font-family': 'Arial',
-            'font-size': '84px', 'font-weight': '700', color: '#ffffff', padding: '0 60px',
-          },
-        },
-        {
-          id: 'line2',
-          type: 'TEXT',
-          text: '',
-          x: 0,
-          y: 0,
-          visible: true,
-          css: {
-            width: '100%', height: '40%', display: 'flex', 'align-items': 'flex-start',
-            'justify-content': 'center', 'text-align': 'center', 'font-family': 'Arial',
-            'font-size': '48px', color: '#ffd479', padding: '0 60px', 'margin-top': '60%',
-          },
-        },
-      ],
-    },
-    props: {},
-  };
+  mappings?: MusicMapping[];
 }
 
 // Monitora quando algo entra ao vivo
 spresenter.on('live', async ({ output = '0' }) => {
-    const layers = await spresenter.live.read(output);
-    const mappings = (await spresenter.storage.get<MusicMapping[]>('music_bg_mappings')) || [];
+  const layers = await spresenter.live.read(output);
+  const mappings = (await spresenter.storage.get<MusicMapping[]>('music_bg_mappings')) || [];
 
-    for (const item of layers) {
-        if (item?.asset && item.asset.type === 'music') {
-            const match = mappings.find((m) => m.musicGuid === item.asset.guid);
+  for (const item of layers) {
+    if (item?.asset && item.asset.type === 'music') {
+      const match = mappings.find((m) => m.musicGuid === item.asset.guid);
 
-            if (match && match.bgGuid) {
-                const bgAsset = await spresenter.assets.get(match.bgGuid);
-                if (bgAsset) {
-                    const targetLayer = match.layer ?? 0;
-                    await spresenter.live.apply(output, targetLayer, { asset: bgAsset });
-                    await spresenter.live.setState(output, targetLayer, { show: true });
-                }
-            }
+      if (match && match.bgGuid) {
+        const targetLayer = match.layer ?? 0;
+        const currentBgGuid = layers[targetLayer]?.asset?.guid;
+
+        // Evita re-aplicar se o fundo já estiver ativo nessa camada (previne recarregar vídeos/imagens)
+        if (currentBgGuid !== match.bgGuid) {
+          const bgAsset = await spresenter.assets.get(match.bgGuid);
+          if (bgAsset) {
+            await spresenter.live.apply(output, targetLayer, { asset: bgAsset });
+            await spresenter.live.setState(output, targetLayer, { show: true });
+          }
         }
+      }
     }
+  }
 });
 
 spresenter.ui.onmessage = async (raw: unknown) => {
@@ -100,60 +41,30 @@ spresenter.ui.onmessage = async (raw: unknown) => {
 
   if (msg.type === 'init') {
     const outputs = await spresenter.outputs.list();
-    spresenter.ui.postMessage({ type: 'outputs', outputs });
-      // Busca todas as músicas da biblioteca
-      const musics = await spresenter.assets.list({ type: 'music' });
+    // Busca todas as músicas da biblioteca
+    const musics = await spresenter.assets.list({ type: 'music' });
 
-      // Busca os vídeos, imagens ou apresentações de fundo
-      const allAssets = await spresenter.assets.list();
-      const backgrounds = allAssets.filter(
-          (a) => a.type === 'video' || a.type === 'image' || a.type === 'presentation'
-      );
+    // Busca os vídeos, imagens ou apresentações de fundo
+    const allAssets = await spresenter.assets.list();
+    const backgrounds = allAssets.filter(
+      (a) => a.type === 'video' || a.type === 'image' || a.type === 'presentation'
+    );
 
-      // Busca os mapeamentos salvos anteriormente
-      const savedMappings = (await spresenter.storage.get('music_bg_mappings')) || [];
+    // Busca os mapeamentos salvos anteriormente
+    const savedMappings = (await spresenter.storage.get<MusicMapping[]>('music_bg_mappings')) || [];
 
-      spresenter.ui.postMessage({
-          type: 'init-data',
-          outputs,
-          musics,
-          backgrounds,
-          mappings: savedMappings,
-      });
+    spresenter.ui.postMessage({
+      type: 'init-data',
+      outputs,
+      musics,
+      backgrounds,
+      mappings: savedMappings,
+    });
     return;
   }
 
-  if (msg.type === 'save-mappings') {
-        await spresenter.storage.set('music_bg_mappings', msg.mappings);
-    }
-
-  // Compose the custom presentation and put it live (visible).
-  if (msg.type === 'go-live') {
-    ctx = { output: String(msg.output ?? '0'), layer: Number(msg.layer ?? 0) };
-    await spresenter.live.apply(ctx.output, ctx.layer, buildPresentation());
-    await spresenter.live.setState(ctx.output, ctx.layer, { show: true });
-    // Seed the current input values.
-    spresenter.live.element(ctx.output, ctx.layer, 'line1').setText(msg.line1 ?? '');
-    spresenter.live.element(ctx.output, ctx.layer, 'line2').setText(msg.line2 ?? '');
-    spresenter.ui.postMessage({ type: 'went-live' });
-    return;
-  }
-
-  // Real-time: grab the element by id and change its text as the user types.
-  if (msg.type === 'set-line' && msg.elementId) {
-    spresenter.live.element(ctx.output, ctx.layer, msg.elementId).setText(msg.text ?? '');
-    return;
-  }
-
-  // Real-time: change an element's color (style) freely.
-  if (msg.type === 'set-color' && msg.elementId && msg.color) {
-    spresenter.live.element(ctx.output, ctx.layer, msg.elementId).setStyle({ color: msg.color });
-    return;
-  }
-
-  if (msg.type === 'clear') {
-    await spresenter.live.clear(ctx.output, ctx.layer);
-    spresenter.ui.postMessage({ type: 'cleared' });
+  if (msg.type === 'save-mappings' && Array.isArray(msg.mappings)) {
+    await spresenter.storage.set('music_bg_mappings', msg.mappings);
   }
 };
 
