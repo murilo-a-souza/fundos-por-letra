@@ -1,7 +1,7 @@
 {
   "id": "com.exemplo.fundos-por-letra",
   "name": "fundos-por-letra",
-  "version": "0.3.48",
+  "version": "1.0.0",
   "description": "Aplica fundos automaticamente para músicas específicas ao vivo.",
   "author": "",
   "minAppVersion": "0.3.48",
