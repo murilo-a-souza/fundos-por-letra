@@ -1,95 +1,89 @@
-# fundos-por-letra
+# Fundos por Letra (`fundos-por-letra`)
 
-Plugin para o programa SPresenter, buscando permitir associar de forma fácil um fundo a uma letra, ao iniciar a letra inicia-se o fundo em uma camada configurada, permitindo salvar fundos para música assim como no Holyrics.
+Plugin para o **sPresenter** que permite vincular automaticamente fundos (vídeos, imagens ou apresentações) a músicas específicas. Ao colocar uma música ao vivo, o fundo configurado entra automaticamente na camada (`layer`) definida, prevenindo recarregamentos desnecessários durante a troca de estrofes/slides.
 
-A Spresenter plugin that composes a **custom presentation** (a theme built in
-code, with elements that have stable ids) and then controls those elements
-**by id, in real time** — text/style update live as you type, without reloading
-the theme. Its UI panel opens **floating** in the main window — dock it wherever
-you like (or open it in a separate window from **Settings → Plugins → Open in
-window**).
+---
 
-Core API used:
+## 🎯 Objetivo
 
-```ts
-// Grab an element by id and modify it freely (chainable):
-spresenter.live.element(output, layer, 'line1').setText('Hello').setStyle({ color: '#ffd479' });
-// or a raw patch:
-spresenter.live.setElement(output, layer, 'line1', { html: '<b>Hi</b>' });
+Automatizar a troca de fundos visuais de acordo com a música em exibição no sPresenter (comportamento similar ao Holyrics), permitindo configurar a camada de exibição e garantindo reprodução contínua e sem interrupções.
+
+---
+
+## 🛠️ Tecnologias e Ferramentas
+
+- **Linguagem & Frameworks:** TypeScript, React 18, Tailwind CSS, PostCSS
+- **Bundler / Build:** Vite (configurações separadas para `code` em background e `ui`)
+- **SDK:** `@spresenter/plugin-sdk` (comunicação com a API de live, assets, storage e UI Kit)
+- **IDE:** WebStorm (JetBrains)
+- **Assistente de IA:** Junie (JetBrains Autonomous Agent powered by `gemini-3.7-flash`)
+
+---
+
+## 📂 Estrutura do Projeto
+
+```
+fundos-por-letra/
+├── manifest.json              # Manifesto do plugin (permissões, endpoints e metadados)
+├── package.json               # Dependências e scripts de build/desenvolvimento
+├── vite.code.config.ts        # Configuração do Vite para o bundle de background (code.ts)
+├── vite.ui.config.ts          # Configuração do Vite para o painel de interface (UI)
+├── scripts/
+│   └── package.mjs            # Script para gerar pacote compactado (.zip) do plugin
+├── sdk/
+│   └── spresenter-plugin-sdk.tgz  # SDK local do sPresenter
+├── src/
+│   ├── code.ts                # Lógica em background (escuta evento live, gerencia storage e API)
+│   └── ui/                    # Interface gráfica do plugin
+│       ├── App.tsx            # Componente raiz, controle de estado e mensagens
+│       ├── main.tsx           # Ponto de entrada React da UI
+│       └── components/
+│           └── MusicPanel.tsx # Item de mapeamento (seleção de letra, fundo, camada e remoção)
+└── dist/                      # Saída de compilação (gerada pelo build)
+    ├── code.js                # Bundle da lógica de execução
+    └── ui/                    # Bundle HTML/CSS/JS da interface
 ```
 
-## Structure
+---
 
-```
-Fundos por Letra
-├── scripts
-│   ├── package.mjs
-├── src
-│   ├── ui
-│   └── code.ts
-├── code.ts
-├── sdk
-│   └── spresenter-plugin-sdk.tgz
-└── manifest.json
-```
+## 🚀 Como Rodar e Desenvolver
 
-`scripts/package.mjs` : Dá build e compila o projeto para distribuição
-`src/ui` : lista A-Z; seleção de fundo; preview; salvar configuração
-`src/code.ts` : detectar letra/slide ativo; descobrir qual fundo corresponde à letra; alterar o fundo no SPresenter;
-`manifest.json` : permissões + plugin metadata + panels
-`dist/` : Build saida (code.js + ui/)
-
-## Develop
-
+### 1. Instalar dependências
 ```bash
 npm install
-npm run dev        # rebuilds code + ui on change
 ```
 
-Then in Spresenter: **Settings → Plugins → Load folder (dev)** and pick this folder.
-Edits to `dist/` reload the plugin automatically.
+### 2. Modo Desenvolvimento (Watch)
+Compila em tempo real as alterações feitas no código de background e na interface:
+```bash
+npm run dev
+```
+Abre um localhost para visualizaçã do front-end
+```bash
+npm run start
+```
 
-## Build for distribution
-
+### 3. Compilar para Produção
+Gera os bundles otimizados na pasta `dist/`:
 ```bash
 npm run build
 ```
 
-Zip the folder (with `dist/` and `manifest.json` at the root) and install it via
-**Settings → Plugins → Install (.zip/folder)**.
+### 4. Gerar Pacote de Distribuição (.zip)
+Cria o arquivo `.zip` pronto para distribuição contendo `manifest.json` e a pasta `dist/`:
+```bash
+npm run package
+```
 
-## How it works
+---
 
-The plugin runs in two threads, like Figma:
+## 🖥️ Como Instalar e Usar no sPresenter
 
-- **`src/code.ts`** runs isolated (no DOM). It calls the app through the global
-  `spresenter` object, which routes to the same cores the REST API uses.
-- **`src/ui/`** runs in a sandboxed iframe and only talks to `code.ts` via
-  `postMessage`/`onMessage` from `@spresenter/plugin-sdk/ui`.
-
-Only what you declare in `manifest.json` `permissions` is allowed.
-
-A interface deve permitir:
-•
-Selecionar a saída (Output) e a camada padrão de fundo (ex: camada 0).
-•
-Listar as músicas cadastradas no Spresenter (spresenter.assets.list({ type: 'music' })).
-•
-Listar fundos disponíveis (vídeos/imagens: spresenter.assets.list({ type: 'video' }), theme, etc.).
-•
-Salvar o vínculo entre a música e o fundo selecionado no spresenter.storage.
-Por onde começar (Passo a Passo)
-1.
-Atualize o manifest.json: inclua as permissões de assets:read, live:read, live:write, storage:read, storage:write e background: true.
-2.
-Crie as mensagens entre UI e Logic:
-◦
-get-assets: busca lista de músicas e fundos disponíveis no SPresenter.
-◦
-save-mapping: salva no spresenter.storage a associação { musicGuid, bgGuid, bgLayer }.
-◦
-get-mappings: carrega o histórico de associações salvas.
-3.
-Construa a UI em src/ui/App.tsx: substitua os campos de texto atuais por selects/tabelas para associar a música com o fundo.
-4.
-Implemente o listener spresenter.on('live', ...) em src/code.ts para acionar o fundo automaticamente ao iniciar a letra.
+1. **Carregar o plugin:**
+   - No sPresenter, vá em **Configurações → Plugins → Carregar pasta (dev)** e selecione a pasta raiz deste projeto (ou instale o arquivo `.zip` gerado via `npm run package`).
+2. **Configurar os vínculos:**
+   - Abra o painel **Fundos por letra**.
+   - Clique em **+ Adicionar letra**, selecione a letra da música, o fundo desejado e informe a camada (`layer`, padrão `0`).
+   - Os mapeamentos são salvos automaticamente no armazenamento local do sPresenter.
+3. **Exibir ao vivo:**
+   - Ao colocar a letra ao vivo em qualquer camada, o sPresenter acionará o fundo correspondente na camada configurada.
