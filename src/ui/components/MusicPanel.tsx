@@ -80,7 +80,7 @@ export default function MusicPanel({
                       <span className="text-neutral-500">Clique para escolher um fundo...</span>
                   )}
                 </span>
-                                <span className="text-xs text-blue-400 font-medium ml-2">Escolher</span>
+                                <span className="text-xs text-indigo-600 font-medium ml-2">Escolher</span>
                             </button>
                         </div>
                     </Field>
