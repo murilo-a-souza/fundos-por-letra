@@ -40,27 +40,28 @@ spresenter.ui.onmessage = async (raw: unknown) => {
   if (!msg || typeof msg !== 'object') return;
 
   if (msg.type === 'init') {
-    const outputs = await spresenter.outputs.list();
-    // Busca todas as músicas da biblioteca
-    const musics = await spresenter.assets.list({ type: 'music' });
+      const outputs = await spresenter.outputs.list();
+      const musics = await spresenter.assets.list({ type: 'music' });
+        // Busca todos os assets incluindo pastas, vídeos, imagens e apresentações
+      const allAssets = await spresenter.assets.list();
+      const mediaAssets = allAssets.filter(
+            (a) =>
+                a.type === 'folder' ||
+                a.type === 'video' ||
+                a.type === 'image' ||
+                a.type === 'presentation'
+      );
 
-    // Busca os vídeos, imagens ou apresentações de fundo
-    const allAssets = await spresenter.assets.list();
-    const backgrounds = allAssets.filter(
-      (a) => a.type === 'video' || a.type === 'image' || a.type === 'presentation'
-    );
+      const savedMappings = (await spresenter.storage.get<MusicMapping[]>('music_bg_mappings')) || [];
 
-    // Busca os mapeamentos salvos anteriormente
-    const savedMappings = (await spresenter.storage.get<MusicMapping[]>('music_bg_mappings')) || [];
-
-    spresenter.ui.postMessage({
-      type: 'init-data',
-      outputs,
-      musics,
-      backgrounds,
-      mappings: savedMappings,
-    });
-    return;
+      spresenter.ui.postMessage({
+            type: 'init-data',
+            outputs,
+            musics,
+            backgrounds: mediaAssets,
+            mappings: savedMappings,
+      });
+      return;
   }
 
   if (msg.type === 'save-mappings' && Array.isArray(msg.mappings)) {
