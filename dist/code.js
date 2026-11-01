@@ -27,15 +27,15 @@
       const outputs = await spresenter.outputs.list();
       const musics = await spresenter.assets.list({ type: "music" });
       const allAssets = await spresenter.assets.list();
-      const backgrounds = allAssets.filter(
-        (a) => a.type === "video" || a.type === "image" || a.type === "presentation"
+      const mediaAssets = allAssets.filter(
+        (a) => a.type === "folder" || a.type === "video" || a.type === "image" || a.type === "presentation"
       );
       const savedMappings = await spresenter.storage.get("music_bg_mappings") || [];
       spresenter.ui.postMessage({
         type: "init-data",
         outputs,
         musics,
-        backgrounds,
+        backgrounds: mediaAssets,
         mappings: savedMappings
       });
       return;
